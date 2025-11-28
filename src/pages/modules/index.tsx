@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { getModules, Module, getUserProgress } from '@/lib/firestore';
+import { dbGetModules, Module, dbGetUserProgress } from '@/lib/db';
 
 export default function Modules() {
   const { user, loading } = useAuth();
@@ -23,13 +23,13 @@ export default function Modules() {
   }, [user]);
 
   const loadModules = async () => {
-    const data = await getModules();
+    const data = await dbGetModules();
     setModules(data);
   };
 
   const loadProgress = async () => {
     if (!user) return;
-    const data = await getUserProgress(user.uid);
+    const data = await dbGetUserProgress(user.id);
     setProgress(data);
   };
 

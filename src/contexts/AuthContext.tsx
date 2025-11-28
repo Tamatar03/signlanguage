@@ -1,19 +1,9 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { 
-  User as FirebaseUser, 
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  updateProfile
-} from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { getUser, createUser, User } from '@/lib/firestore';
-import { Timestamp } from 'firebase/firestore';
+import { useRouter } from 'next/router';
+import { User, dbGetUserById, initializeDatabase } from '@/lib/db';
 
 interface AuthContextType {
-  user: FirebaseUser | null;
-  userData: User | null;
+  user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName: string, role: 'student' | 'teacher') => Promise<void>;
@@ -22,7 +12,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  userData: null,
   loading: true,
   signIn: async () => {},
   signUp: async () => {},
@@ -32,50 +21,77 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userData, setUserData] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      
-      if (firebaseUser) {
-        const data = await getUser(firebaseUser.uid);
-        setUserData(data);
-      } else {
-        setUserData(null);
-      }
-      
+    // Initialize database
+    initializeDatabase();
+    
+    // Check for existing session
+    const userId = localStorage.getItem('currentUserId');
+    if (userId) {
+      loadUser(userId);
+    } else {
       setLoading(false);
-    });
-
-    return unsubscribe;
+    }
   }, []);
 
+  const loadUser = async (userId: string) => {
+    try {
+      const userData = await dbGetUserById(userId);
+      setUser(userData);
+    } catch (error) {
+      console.error('Error loading user:', error);
+      localStorage.removeItem('currentUserId');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const response = await fetch('/api/auth/signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Sign in failed');
+    }
+
+    const data = await response.json();
+    localStorage.setItem('currentUserId', data.user.id);
+    setUser(data.user);
   };
 
   const signUp = async (email: string, password: string, displayName: string, role: 'student' | 'teacher') => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    
-    await updateProfile(userCredential.user, { displayName });
-    
-    await createUser(userCredential.user.uid, {
-      email,
-      displayName,
-      role,
-      createdAt: Timestamp.now()
+    const response = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, displayName, role })
     });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Sign up failed');
+    }
+
+    const data = await response.json();
+    localStorage.setItem('currentUserId', data.user.id);
+    setUser(data.user);
   };
 
   const signOut = async () => {
-    await firebaseSignOut(auth);
+    localStorage.removeItem('currentUserId');
+    setUser(null);
+    router.push('/');
   };
 
   return (
-    <AuthContext.Provider value={{ user, userData, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserProgress, getUserQuizResults, Module, getModules } from '@/lib/firestore';
+import { dbGetUserProgress, dbGetUserQuizResults, Module, dbGetModules } from '@/lib/db';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 export default function Dashboard() {
@@ -35,9 +35,9 @@ export default function Dashboard() {
     if (!user) return;
 
     const [userProgress, results, allModules] = await Promise.all([
-      getUserProgress(user.uid),
-      getUserQuizResults(user.uid),
-      getModules()
+      dbGetUserProgress(user.id),
+      dbGetUserQuizResults(user.id),
+      dbGetModules()
     ]);
 
     setProgress(userProgress);
@@ -95,7 +95,7 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
-            Welcome back, {userData?.displayName || 'Student'}! 👋
+            Welcome back, {user?.displayName || 'Student'}! 👋
           </h1>
           <p className="text-gray-600 mt-2">Track your learning progress and continue your journey</p>
         </div>

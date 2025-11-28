@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserProgress, getUserQuizResults } from '@/lib/firestore';
+import { dbGetUserProgress, dbGetUserQuizResults } from '@/lib/db';
 import { format } from 'date-fns';
 
 export default function Profile() {
@@ -27,8 +27,8 @@ export default function Profile() {
     if (!user) return;
 
     const [userProgress, results] = await Promise.all([
-      getUserProgress(user.uid),
-      getUserQuizResults(user.uid)
+      dbGetUserProgress(user.id),
+      dbGetUserQuizResults(user.id)
     ]);
 
     setProgress(userProgress);
@@ -57,15 +57,15 @@ export default function Profile() {
           <div className="flex items-center space-x-6">
             <div className="w-24 h-24 bg-primary-100 rounded-full flex items-center justify-center">
               <span className="text-4xl font-bold text-primary-600">
-                {userData?.displayName?.charAt(0).toUpperCase()}
+                {user?.displayName?.charAt(0).toUpperCase()}
               </span>
             </div>
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900">{userData?.displayName}</h1>
-              <p className="text-gray-600">{userData?.email}</p>
+              <h1 className="text-3xl font-bold text-gray-900">{user?.displayName}</h1>
+              <p className="text-gray-600">{user?.email}</p>
               <div className="mt-2">
                 <span className="inline-block bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm font-medium">
-                  {userData?.role === 'student' ? '🎓 Student' : '👨‍🏫 Teacher'}
+                  {user?.role === 'student' ? '🎓 Student' : '👨‍🏫 Teacher'}
                 </span>
               </div>
             </div>

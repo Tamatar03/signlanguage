@@ -4,7 +4,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { getLessonById, updateProgress, Lesson } from '@/lib/firestore';
+import { dbGetLessonById, dbUpdateProgress, Lesson } from '@/lib/db';
 
 // Dynamically import to avoid SSR issues with MediaPipe
 const HandGestureDetector = dynamic(
@@ -33,7 +33,7 @@ export default function LessonPage() {
   const loadLesson = async () => {
     if (typeof id !== 'string') return;
 
-    const lessonData = await getLessonById(id);
+    const lessonData = await dbGetLessonById(id);
     setLesson(lessonData);
     setLoading(false);
   };
@@ -56,7 +56,7 @@ export default function LessonPage() {
     setAttempts(prev => prev + 1);
 
     if (user && lesson) {
-      await updateProgress(user.uid, lesson.moduleId, lesson.id, {
+      await dbUpdateProgress(user.id, lesson.moduleId, lesson.id, {
         completed: true,
         score: bestScore,
         attempts: attempts + 1

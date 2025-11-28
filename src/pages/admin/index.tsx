@@ -1,15 +1,12 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { getModules, Module, createModule, createLesson } from '@/lib/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '@/lib/firebase';
-import { Timestamp } from 'firebase/firestore';
+import { dbGetModules, Module, dbCreateModule, dbCreateLesson } from '@/lib/db';
 
 export default function AdminPage() {
-  const { user, userData, loading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [modules, setModules] = useState<Module[]>([]);
   const [showModuleForm, setShowModuleForm] = useState(false);
@@ -27,23 +24,23 @@ export default function AdminPage() {
   const [lessonDescription, setLessonDescription] = useState('');
   const [lessonSign, setLessonSign] = useState('');
   const [lessonInstructions, setLessonInstructions] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
   
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    if (!loading && (!user || (userData?.role !== 'teacher' && userData?.role !== 'admin'))) {
+    if (!loading && (!user || (user?.role !== 'teacher' && user?.role !== 'admin'))) {
       router.push('/dashboard');
     }
-  }, [user, userData, loading, router]);
+  }, [user, loading, router]);
 
   useEffect(() => {
     loadModules();
   }, []);
 
   const loadModules = async () => {
-    const data = await getModules();
+    const data = await dbGetModules();
     setModules(data);
   };
 
@@ -54,14 +51,13 @@ export default function AdminPage() {
     setUploading(true);
 
     try {
-      await createModule({
+      await dbCreateModule({
         title: moduleTitle,
         description: moduleDescription,
         category: moduleCategory,
         difficulty: moduleDifficulty,
         lessons: [],
-        createdBy: user.uid,
-        createdAt: Timestamp.now()
+        createdBy: user.id
       });
 
       // Reset form
@@ -87,34 +83,16 @@ export default function AdminPage() {
     setUploading(true);
 
     try {
-      let imageUrl = '';
-      let videoUrl = '';
+      const instructions = lessonInstructions.split('\n').filter((i: string) => i.trim());
 
-      // Upload image if provided
-      if (imageFile) {
-        const imageRef = ref(storage, `lessons/${Date.now()}_${imageFile.name}`);
-        await uploadBytes(imageRef, imageFile);
-        imageUrl = await getDownloadURL(imageRef);
-      }
-
-      // Upload video if provided
-      if (videoFile) {
-        const videoRef = ref(storage, `lessons/${Date.now()}_${videoFile.name}`);
-        await uploadBytes(videoRef, videoFile);
-        videoUrl = await getDownloadURL(videoRef);
-      }
-
-      const instructions = lessonInstructions.split('\n').filter(i => i.trim());
-
-      await createLesson({
+      await dbCreateLesson({
         moduleId: selectedModule,
         title: lessonTitle,
         description: lessonDescription,
         sign: lessonSign,
-        imageUrl,
-        videoUrl,
-        instructions,
-        createdAt: Timestamp.now()
+        imageUrl: imageUrl || undefined,
+        videoUrl: videoUrl || undefined,
+        instructions
       });
 
       // Reset form
@@ -122,8 +100,8 @@ export default function AdminPage() {
       setLessonDescription('');
       setLessonSign('');
       setLessonInstructions('');
-      setImageFile(null);
-      setVideoFile(null);
+      setImageUrl('');
+      setVideoUrl('');
       setShowLessonForm(false);
       
       alert('Lesson created successfully!');
@@ -333,26 +311,30 @@ export default function AdminPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Image Upload
+                    Image URL
                   </label>
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md"
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500"
+                    placeholder="https://example.com/image.jpg"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Enter URL to an external image</p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Video Upload
+                    Video URL
                   </label>
                   <input
-                    type="file"
-                    accept="video/*"
-                    onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md"
+                    type="url"
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500"
+                    placeholder="https://example.com/video.mp4"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Enter URL to an external video</p>
                 </div>
               </div>
 

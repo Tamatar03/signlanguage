@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { getModuleById, getLessonsByModule, Module, Lesson, getUserProgress } from '@/lib/firestore';
+import { dbGetModuleById, dbGetLessonsByModule, Module, Lesson, dbGetUserProgress } from '@/lib/db';
 
 export default function ModulePage() {
   const router = useRouter();
@@ -24,15 +24,15 @@ export default function ModulePage() {
     if (typeof id !== 'string') return;
 
     const [moduleData, lessonsData] = await Promise.all([
-      getModuleById(id),
-      getLessonsByModule(id)
+      dbGetModuleById(id),
+      dbGetLessonsByModule(id)
     ]);
 
     setModule(moduleData);
     setLessons(lessonsData);
 
     if (user) {
-      const userProgress = await getUserProgress(user.uid);
+      const userProgress = await dbGetUserProgress(user.id);
       setProgress(userProgress.filter(p => p.moduleId === id));
     }
 

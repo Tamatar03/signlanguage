@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { storage } from '@/lib/db';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 
 export default function AnalyticsPage() {
-  const { user, userData, loading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState({
     totalStudents: 0,
@@ -19,38 +18,35 @@ export default function AnalyticsPage() {
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!loading && (!user || (userData?.role !== 'teacher' && userData?.role !== 'admin'))) {
+    if (!loading && (!user || (user?.role !== 'teacher' && user?.role !== 'admin'))) {
       router.push('/dashboard');
     }
-  }, [user, userData, loading, router]);
+  }, [user, loading, router]);
 
   useEffect(() => {
-    if (user && (userData?.role === 'teacher' || userData?.role === 'admin')) {
+    if (user && (user?.role === 'teacher' || user?.role === 'admin')) {
       loadAnalytics();
     }
-  }, [user, userData]);
+  }, [user]);
 
   const loadAnalytics = async () => {
     try {
-      // Get total students
-      const usersSnapshot = await getDocs(
-        query(collection(db, 'users'), where('role', '==', 'student'))
-      );
-      const totalStudents = usersSnapshot.size;
+      // Get data from localStorage
+      const usersData = JSON.parse(localStorage.getItem('users') || '[]');
+      const lessonsData = JSON.parse(localStorage.getItem('lessons') || '[]');
+      const progressData = JSON.parse(localStorage.getItem('progress') || '[]');
+      const quizResultsData = JSON.parse(localStorage.getItem('quizResults') || '[]');
+      const modulesData = JSON.parse(localStorage.getItem('modules') || '[]');
 
-      // Get total lessons
-      const lessonsSnapshot = await getDocs(collection(db, 'lessons'));
-      const totalLessons = lessonsSnapshot.size;
-
-      // Get quiz results
-      const quizResultsSnapshot = await getDocs(collection(db, 'quizResults'));
-      const quizResults = quizResultsSnapshot.docs.map(doc => doc.data());
-      const totalQuizzes = quizResults.length;
+      // Calculate statistics
+      const totalStudents = usersData.filter((u: any) => u.role === 'student').length;
+      const totalLessons = lessonsData.length;
+      const totalQuizzes = quizResultsData.length;
 
       // Calculate average score
-      const averageScore = quizResults.length > 0
+      const averageScore = quizResultsData.length > 0
         ? Math.round(
-            quizResults.reduce((acc, r) => acc + (r.score / r.totalQuestions) * 100, 0) / quizResults.length
+            quizResultsData.reduce((acc: number, r: any) => acc + (r.score / r.totalQuestions) * 100, 0) / quizResultsData.length
           )
         : 0;
 
@@ -62,30 +58,23 @@ export default function AnalyticsPage() {
       });
 
       // Get module statistics
-      const modulesSnapshot = await getDocs(collection(db, 'modules'));
-      const modules = modulesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const moduleData = modulesData.slice(0, 6).map((module: any) => {
+        const moduleProgress = progressData.filter((p: any) => p.moduleId === module.id);
+        const completed = moduleProgress.filter((p: any) => p.completed).length;
+        const total = moduleProgress.length;
 
-      const moduleData = await Promise.all(
-        modules.slice(0, 6).map(async (module: any) => {
-          const progressSnapshot = await getDocs(
-            query(collection(db, 'progress'), where('moduleId', '==', module.id))
-          );
-          const completed = progressSnapshot.docs.filter(doc => doc.data().completed).length;
-          const total = progressSnapshot.size;
-
-          return {
-            name: module.title.slice(0, 20),
-            completed,
-            inProgress: total - completed
-          };
-        })
-      );
+        return {
+          name: module.title.slice(0, 20),
+          completed,
+          inProgress: total - completed
+        };
+      });
 
       setModuleStats(moduleData);
 
-      // Get recent activity
-      const recentResults = quizResults
-        .sort((a, b) => b.completedAt?.seconds - a.completedAt?.seconds)
+      // Get recent activity (sort by completedAt timestamp)
+      const recentResults = quizResultsData
+        .sort((a: any, b: any) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
         .slice(0, 10);
 
       setRecentActivity(recentResults);

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function Navbar() {
-  const { user, userData, signOut } = useAuth();
+  const { user, signOut } = useAuth();
 
   return (
     <nav className="bg-white shadow-md" role="navigation" aria-label="Main navigation">
@@ -30,7 +30,7 @@ export default function Navbar() {
                 >
                   Modules
                 </Link>
-                {userData?.role === 'teacher' || userData?.role === 'admin' ? (
+                {user?.role === 'teacher' || user?.role === 'admin' ? (
                   <Link 
                     href="/admin" 
                     className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"

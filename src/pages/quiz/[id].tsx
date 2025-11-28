@@ -5,14 +5,14 @@ import Link from 'next/link';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
-  getModuleById, 
-  getQuizByModule, 
-  getLessonsByModule,
-  saveQuizResult,
+  dbGetModuleById, 
+  dbGetQuizByModule, 
+  dbGetLessonsByModule,
+  dbSaveQuizResult,
   Module,
   Quiz,
   QuizQuestion 
-} from '@/lib/firestore';
+} from '@/lib/db';
 
 const HandGestureDetector = dynamic(
   () => import('@/components/HandGestureDetector'),
@@ -43,8 +43,8 @@ export default function QuizPage() {
     if (typeof id !== 'string') return;
 
     const [moduleData, quizData] = await Promise.all([
-      getModuleById(id),
-      getQuizByModule(id)
+      dbGetModuleById(id),
+      dbGetQuizByModule(id)
     ]);
 
     setModule(moduleData);
@@ -61,7 +61,7 @@ export default function QuizPage() {
   };
 
   const generateQuiz = async (moduleId: string): Promise<Quiz> => {
-    const lessons = await getLessonsByModule(moduleId);
+    const lessons = await dbGetLessonsByModule(moduleId);
     
     const questions: QuizQuestion[] = [];
     
@@ -105,7 +105,7 @@ export default function QuizPage() {
       moduleId,
       questions,
       passingScore: 70,
-      createdAt: { seconds: Date.now() / 1000 } as any
+      createdAt: new Date().toISOString()
     };
   };
 
@@ -140,9 +140,9 @@ export default function QuizPage() {
     setScore(correctCount);
     setIsComplete(true);
 
-    // Save result to Firestore
-    await saveQuizResult({
-      userId: user.uid,
+    // Save result to local storage
+    await dbSaveQuizResult({
+      userId: user.id,
       quizId: quiz.id,
       moduleId: quiz.moduleId,
       score: correctCount,
